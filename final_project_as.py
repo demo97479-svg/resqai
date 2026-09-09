@@ -1,26 +1,36 @@
 import os
+import base64
 import streamlit as st
-
 from dotenv import load_dotenv
 from openai import OpenAI
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 
 
+
+# PAGE CONFIGURATION
+
+
 st.set_page_config(
-    page_title="AI Emergency Call Intelligence",
+    page_title="ResQAI - Emergency Response Agent",
     page_icon="🚨",
     layout="wide"
 )
-import base64
+
+
+
+# BACKGROUND IMAGE
+
 
 def set_background(image_file):
+
     with open(image_file, "rb") as f:
         encoded = base64.b64encode(f.read()).decode()
 
     st.markdown(
         f"""
         <style>
+
         .stApp {{
             background-image:
                 linear-gradient(
@@ -33,17 +43,32 @@ def set_background(image_file):
             background-position: center;
             background-attachment: fixed;
         }}
+
         </style>
         """,
         unsafe_allow_html=True
     )
 
 
-
-
 set_background("background.jpeg")
 
-st.title("🚨 ResQAI — Real-Time Voice-Based Intelligent Emergency Response Agent ")
+
+
+# TITLE
+
+
+st.title(
+    "🚨 ResQAI — Real-Time Voice-Based Intelligent Emergency Response Agent"
+)
+
+st.write(
+    "AI agent for collecting, understanding, and structuring "
+    "emergency call information."
+)
+
+
+
+# OPENAI API KEY
 
 
 load_dotenv(override=True)
@@ -55,28 +80,35 @@ api_key = st.text_input(
 )
 
 if not api_key:
-    st.warning("Please enter your OpenAI API key to continue.")
+
+    st.warning(
+        "Please enter your OpenAI API key to continue."
+    )
+
     st.stop()
 
-client = OpenAI(api_key=api_key)
+
+client = OpenAI(
+    api_key=api_key
+)
 
 
-# MODIFIED: Added Streamlit Session State
-# WHY:
-# Streamlit reruns the complete script whenever a button is
-# clicked. Without session_state, previous transcript and
-# extracted information would be lost.
+
+# SESSION STATE
 
 
 if "conversation_transcript" not in st.session_state:
+
     st.session_state.conversation_transcript = ""
 
+
 if "incident_info" not in st.session_state:
+
     st.session_state.incident_info = ""
 
 
 
-# STATE
+# LANGGRAPH STATE
 
 
 class EmergencyState(TypedDict):
@@ -88,47 +120,21 @@ class EmergencyState(TypedDict):
 
 
 
-# RECORD AUDIO
-
-
-def record(duration):
-
-    sample_rate = 16000
-
-    audio = sd.rec(
-        int(duration * sample_rate),
-        samplerate=sample_rate,
-        channels=1,
-        dtype="int16"
-    )
-
-    sd.wait()
-
-    write(
-        "question.wav",
-        sample_rate,
-        audio
-    )
-
-
-
 # TRANSCRIBE AUDIO
 
 
-def transcribe_audio():
+def transcribe_audio(audio_file):
 
-    with open("question.wav", "rb") as audio_file:
-
-        result = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
+    result = client.audio.transcriptions.create(
+        model="whisper-1",
+        file=audio_file
+    )
 
     return result.text
 
 
 
-# EXTRACT INFORMATION
+# EXTRACT EMERGENCY INFORMATION
 
 
 def extract_information(previous_info, transcript):
@@ -224,7 +230,7 @@ def check_missing_information(incident_info):
 
 
 
-# GENERATE SUMMARY
+# GENERATE EMERGENCY SUMMARY
 
 
 def generate_summary(transcript, incident_info):
@@ -245,7 +251,7 @@ Extracted Information:
 {incident_info}
 
 
-Create the summary in this format in english language only:
+Create the summary in this format in English language only:
 
 EMERGENCY SUMMARY
 
@@ -353,14 +359,36 @@ workflow = StateGraph(EmergencyState)
 
 # Add nodes
 
-workflow.add_node("update_information",update_information_node)
-workflow.add_node("check_missing",check_missing_node)
-workflow.add_node("follow_up",follow_up_node)
-workflow.add_node("summary",summary_node)
-workflow.add_edge(START,"update_information")
+workflow.add_node(
+    "update_information",
+    update_information_node
+)
+
+workflow.add_node(
+    "check_missing",
+    check_missing_node
+)
+
+workflow.add_node(
+    "follow_up",
+    follow_up_node
+)
+
+workflow.add_node(
+    "summary",
+    summary_node
+)
 
 
-# Update information → Check missing
+# START → Update Information
+
+workflow.add_edge(
+    START,
+    "update_information"
+)
+
+
+# Update Information → Check Missing
 
 workflow.add_edge(
     "update_information",
@@ -368,7 +396,7 @@ workflow.add_edge(
 )
 
 
-# Conditional routing
+# Conditional Routing
 
 workflow.add_conditional_edges(
     "check_missing",
@@ -380,7 +408,7 @@ workflow.add_conditional_edges(
 )
 
 
-# Follow-up → End
+# Follow-up → END
 
 workflow.add_edge(
     "follow_up",
@@ -388,7 +416,7 @@ workflow.add_edge(
 )
 
 
-# Summary → End
+# Summary → END
 
 workflow.add_edge(
     "summary",
@@ -396,7 +424,7 @@ workflow.add_edge(
 )
 
 
-# Compile graph
+# Compile
 
 app = workflow.compile()
 
@@ -407,58 +435,55 @@ app = workflow.compile()
 
 st.divider()
 
+st.subheader("🎤 Voice Emergency Call")
 
-duration = st.slider(
-    "Recording Duration (seconds)",
-    min_value=3,
-    max_value=10,
-    value=5
+st.write(
+    "Click the microphone button and describe the emergency."
 )
 
 
-if st.button(
-    "🎤 Record Emergency Call",
-    use_container_width=True
-):
+# Browser-based microphone
+audio_value = st.audio_input(
+    "🎤 Record Emergency Call"
+)
 
-   
-    # RECORD
-   
 
-    with st.spinner(
-        "🎙️ Recording... Please speak."
-    ):
 
-        record(duration)
+# PROCESS AUDIO
+
+
+if audio_value is not None:
 
     st.success(
         "✅ Recording completed!"
     )
 
 
-   
+
     # TRANSCRIPTION
-   
+
 
     with st.spinner(
         "📝 Converting speech to text..."
     ):
 
-        transcript = transcribe_audio()
+        transcript = transcribe_audio(
+            audio_value
+        )
 
 
-    st.subheader("📝 Latest Transcript")
+    st.subheader(
+        "📝 Latest Transcript"
+    )
 
-    st.write(transcript)
+    st.write(
+        transcript
+    )
 
 
-   
-    # MODIFIED: APPEND NEW TRANSCRIPT TO PREVIOUS TRANSCRIPT
-    # WHY:
-    # Every Streamlit button click reruns the application.
-    # We therefore store the complete conversation in
-    # st.session_state and append each new caller response.
-   
+
+    # SAVE COMPLETE CONVERSATION
+
 
     if st.session_state.conversation_transcript:
 
@@ -473,25 +498,17 @@ if st.button(
         )
 
 
-   
-    # MODIFIED: USE PREVIOUS INCIDENT INFORMATION
-    # WHY:
-    # Previously incident_info was reset to "" on every
-    # recording. Now we pass the previously extracted
-    # information so LangGraph can update it instead of
-    # starting from scratch.
-   
+
+    # INITIAL LANGGRAPH STATE
+
 
     initial_state = {
 
-        # MODIFIED:
-        # Pass complete conversation instead of only the
-        # latest transcript.
-        "transcript": st.session_state.conversation_transcript,
+        "transcript":
+            st.session_state.conversation_transcript,
 
-        # MODIFIED:
-        # Preserve previously extracted incident information.
-        "incident_info": st.session_state.incident_info,
+        "incident_info":
+            st.session_state.incident_info,
 
         "missing_question": "",
 
@@ -499,12 +516,12 @@ if st.button(
     }
 
 
-   
+
     # LANGGRAPH PROCESSING
-   
+
 
     with st.spinner(
-        "🤖 LangGraph is processing..."
+        "🤖 ResQAI Agent is processing..."
     ):
 
         result = app.invoke(
@@ -512,19 +529,18 @@ if st.button(
         )
 
 
-   
-    # MODIFIED: SAVE UPDATED INCIDENT INFORMATION
-    #
-    # WHY:
-    # The next follow-up must know what was already extracted.
-   
 
-    st.session_state.incident_info = result["incident_info"]
+    # SAVE INCIDENT INFORMATION
 
 
-   
-    # DISPLAY EXTRACTED INFORMATION
-   
+    st.session_state.incident_info = (
+        result["incident_info"]
+    )
+
+
+
+    # DISPLAY INCIDENT INFORMATION
+
 
     st.subheader(
         "🚨 Extracted Incident Information"
@@ -535,9 +551,9 @@ if st.button(
     )
 
 
-   
-    # DISPLAY FOLLOW-UP QUESTION
-   
+
+    # FOLLOW-UP QUESTION
+
 
     if result["missing_question"]:
 
@@ -554,9 +570,9 @@ if st.button(
         )
 
 
-   
-    # DISPLAY FINAL SUMMARY
-   
+
+    # FINAL SUMMARY
+
 
     else:
 
@@ -574,14 +590,12 @@ if st.button(
 
 
 
-# MODIFIED: OPTIONAL DEBUG / CONVERSATION HISTORY DISPLAY
-#
-# WHY:
-# This lets you see that previous transcripts are actually
-# being preserved and appended after every recording.
+# COMPLETE CONVERSATION HISTORY
 
 
-with st.expander("🗣️ Complete Conversation History"):
+with st.expander(
+    "🗣️ Complete Conversation History"
+):
 
     if st.session_state.conversation_transcript:
 
