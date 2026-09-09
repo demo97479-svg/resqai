@@ -1,0 +1,6 @@
+streamlit
+sounddevice
+scipy
+python-dotenv
+openai
+langgraph
