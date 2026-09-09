@@ -1,7 +1,6 @@
 import os
 import streamlit as st
-import sounddevice as sd
-from scipy.io.wavfile import write
+
 from dotenv import load_dotenv
 from openai import OpenAI
 from typing import TypedDict
